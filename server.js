@@ -1,4 +1,4 @@
-"use strict";
+// server.js
 const express = require("express");
 const path = require("path");
 const compression = require("compression");
@@ -20,14 +20,16 @@ app.use(cors());
 app.set("trust proxy", 1);
 app.use(cookieParser());
 
+// ログインチェック
 app.use((req, res, next) => {
-    if (req.cookies.loginok !== 'ok' && !req.path.includes('login') && !req.path.includes('back')) {
-        return res.redirect('/login');
-    } else {
-        next();
-    }
+  if (req.cookies.loginok !== 'ok' && !req.path.includes('login') && !req.path.includes('back')) {
+    return res.redirect('/login');
+  } else {
+    next();
+  }
 });
 
+// 各種ルーティング
 app.get('/', (req, res) => {
   if (req.query.r === 'y') {
     res.render("home/index");
@@ -35,33 +37,23 @@ app.get('/', (req, res) => {
     res.redirect('/wkt');
   }
 });
-
-app.get('/app', (req, res) => {
-  res.render("app/list");
-});
-
+app.get('/app', (req, res) => res.render("app/list"));
 app.use("/wkt", require("./routes/wakametube"));
 app.use("/game", require("./routes/game"));
 app.use("/tools", require("./routes/tools"));
 app.use("/pp", require("./routes/proxy"));
 app.use("/wakams", require("./routes/music"));
 app.use("/blog", require("./routes/blog"));
-
-app.get('/login', (req, res) => {
-    res.render('home/login');
-});
+app.get('/login', (req, res) => res.render('home/login'));
 
 app.get('/watch', (req, res) => {
   const videoId = req.query.v;
-  if (videoId) {
-    res.redirect(`/wkt/watch/${videoId}`);
-  } else {
-    res.redirect(`/wkt/trend`);
-  }
+  if (videoId) res.redirect(`/wkt/watch/${videoId}`);
+  else res.redirect(`/wkt/trend`);
 });
 app.get('/channel/:id', (req, res) => {
   const id = req.params.id;
-    res.redirect(`/wkt/c/${id}`);
+  res.redirect(`/wkt/c/${id}`);
 });
 app.get('/channel/:id/join', (req, res) => {
   const id = req.params.id;
@@ -71,27 +63,27 @@ app.get('/hashtag/:des', (req, res) => {
   const des = req.params.des;
   res.redirect(`/wkt/s?q=${des}`);
 });
-
 app.use("/sandbox", require("./routes/sandbox"));
 
+// 404ページ
 app.use((req, res) => {
   res.status(404).render("error.ejs", {
     title: "404 Not found",
     content: "そのページは存在しません。",
   });
 });
-app.on("error", console.error);
-async function initInnerTube() {
-  try {
-    client = await YouTubeJS.Innertube.create({ lang: "ja", location: "JP"});
-    serverYt.setClient(client);
-    const listener = app.listen(process.env.PORT || 3000, () => {
-      console.log(process.pid, "Ready.", listener.address().port);
-    });
-  } catch (e) {
-    console.error(e);
-    setTimeout(initInnerTube, 10000);
-  };
+
+// エクスポート関数（Vercel用）
+module.exports = async (req, res) => {
+  if (!client) {
+    try {
+      client = await YouTubeJS.Innertube.create({ lang: "ja", location: "JP" });
+      serverYt.setClient(client);
+    } catch (e) {
+      console.error(e);
+      return res.status(500).send("Internal error");
+    }
+  }
+
+  app(req, res);
 };
-process.on("unhandledRejection", console.error);
-initInnerTube();
